@@ -1,5 +1,13 @@
 export type Language = "python" | "cpp" | "java" | "html";
 
+export interface Project {
+  id: string;
+  name: string;
+  language: Language;
+  code: string;
+  updatedAt: number;
+}
+
 export interface LanguageConfig {
   label: string;
   monacoLanguage: string;

@@ -2,13 +2,14 @@ import { useEffect } from "react";
 import { Language, LANGUAGE_CONFIG } from "../types";
 
 interface TopBarProps {
+  projectName: string;
   language: Language;
   onLanguageChange: (lang: Language) => void;
   onRun: () => void;
   isRunning: boolean;
 }
 
-export function TopBar({ language, onLanguageChange, onRun, isRunning }: TopBarProps) {
+export function TopBar({ projectName, language, onLanguageChange, onRun, isRunning }: TopBarProps) {
   useEffect(() => {
     function handleKeydown(e: KeyboardEvent) {
       if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
@@ -24,8 +25,10 @@ export function TopBar({ language, onLanguageChange, onRun, isRunning }: TopBarP
 
   return (
     <div className="flex items-center gap-3 px-4 h-12 bg-zinc-900 border-b border-zinc-800 shrink-0">
-      <span className="text-zinc-100 font-semibold text-sm tracking-wide select-none">
-        Nathan's IDE
+      <span className="text-zinc-500 text-sm select-none hidden md:inline">Nathan's IDE</span>
+
+      <span className="text-zinc-100 font-semibold text-sm truncate max-w-[180px]" title={projectName}>
+        {projectName}
       </span>
 
       <div className="flex-1" />
