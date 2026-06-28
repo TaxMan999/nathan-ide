@@ -4,50 +4,59 @@ import { TopBar } from "./components/TopBar";
 import { Sidebar } from "./components/Sidebar";
 import { Editor } from "./components/Editor";
 import { Output } from "./components/Output";
+import { LoginScreen } from "./components/LoginScreen";
 import { Language, LANGUAGE_CONFIG } from "./types";
 import { useCodeRunner } from "./hooks/useCodeRunner";
 import { useProjects } from "./hooks/useProjects";
+import { useAuth } from "./hooks/useAuth";
+import { isConfigured } from "./lib/supabase";
 
 const HTML_DEBOUNCE_MS = 300;
 
 export default function App() {
+  const { user, loading: authLoading, sent, signInError, signIn, signOut, resetSent } = useAuth();
+
+  // When Supabase is not configured, skip auth entirely (offline mode)
+  const userId = isConfigured ? user?.id : undefined;
+
   const {
     projects,
     currentProject,
+    syncState,
     createProject,
     renameProject,
     deleteProject,
     switchProject,
     updateCurrentCode,
     updateCurrentLanguage,
-  } = useProjects();
+  } = useProjects(userId);
 
-  const [htmlSrc, setHtmlSrc] = useState(currentProject.code);
+  const [htmlSrc, setHtmlSrc] = useState("");
   const htmlDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isNarrow = useWindowWidth() < 768;
 
   const { status, stdout, stderr, run, clear } = useCodeRunner();
 
-  // Sync htmlSrc when the active project changes (e.g. switching projects)
   useEffect(() => {
-    if (currentProject.language === "html") {
+    if (currentProject?.language === "html") {
       setHtmlSrc(currentProject.code);
     }
-  }, [currentProject.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentProject?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCodeChange = useCallback(
     (value: string) => {
       updateCurrentCode(value);
-      if (currentProject.language === "html") {
+      if (currentProject?.language === "html") {
         if (htmlDebounceRef.current) clearTimeout(htmlDebounceRef.current);
         htmlDebounceRef.current = setTimeout(() => setHtmlSrc(value), HTML_DEBOUNCE_MS);
       }
     },
-    [currentProject.language, updateCurrentCode]
+    [currentProject?.language, updateCurrentCode]
   );
 
   const handleLanguageChange = useCallback(
     (next: Language) => {
+      if (!currentProject) return;
       const isTemplate =
         currentProject.code.trim() === LANGUAGE_CONFIG[currentProject.language].template.trim();
       if (!isTemplate) {
@@ -60,7 +69,7 @@ export default function App() {
       if (next === "html") setHtmlSrc(LANGUAGE_CONFIG["html"].template);
       clear();
     },
-    [currentProject.code, currentProject.language, updateCurrentLanguage, clear]
+    [currentProject, updateCurrentLanguage, clear]
   );
 
   const handleSwitchProject = useCallback(
@@ -72,8 +81,39 @@ export default function App() {
   );
 
   const handleRun = useCallback(() => {
+    if (!currentProject) return;
     run(currentProject.code, currentProject.language);
-  }, [currentProject.code, currentProject.language, run]);
+  }, [currentProject, run]);
+
+  // Auth gate — only when Supabase is configured
+  if (isConfigured) {
+    if (authLoading) {
+      return (
+        <div className="flex items-center justify-center h-full bg-zinc-950">
+          <div className="text-zinc-500 text-sm">Loading…</div>
+        </div>
+      );
+    }
+    if (!user) {
+      return (
+        <LoginScreen
+          onSignIn={signIn}
+          sent={sent}
+          error={signInError}
+          onTryAgain={resetSent}
+        />
+      );
+    }
+  }
+
+  // Projects still loading from Supabase
+  if (syncState === "loading" || !currentProject) {
+    return (
+      <div className="flex items-center justify-center h-full bg-zinc-950">
+        <div className="text-zinc-500 text-sm">Loading your projects…</div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -83,6 +123,8 @@ export default function App() {
         onLanguageChange={handleLanguageChange}
         onRun={handleRun}
         isRunning={status === "running"}
+        userEmail={isConfigured ? user?.email : undefined}
+        onSignOut={isConfigured ? signOut : undefined}
       />
 
       <div className="flex flex-1 overflow-hidden">

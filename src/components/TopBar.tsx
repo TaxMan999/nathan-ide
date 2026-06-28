@@ -7,9 +7,19 @@ interface TopBarProps {
   onLanguageChange: (lang: Language) => void;
   onRun: () => void;
   isRunning: boolean;
+  userEmail?: string;
+  onSignOut?: () => void;
 }
 
-export function TopBar({ projectName, language, onLanguageChange, onRun, isRunning }: TopBarProps) {
+export function TopBar({
+  projectName,
+  language,
+  onLanguageChange,
+  onRun,
+  isRunning,
+  userEmail,
+  onSignOut,
+}: TopBarProps) {
   useEffect(() => {
     function handleKeydown(e: KeyboardEvent) {
       if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
@@ -67,6 +77,25 @@ export function TopBar({ projectName, language, onLanguageChange, onRun, isRunni
           <>▶ Run</>
         )}
       </button>
+
+      {/* User / sign out */}
+      {userEmail && onSignOut && (
+        <div className="flex items-center gap-2 pl-1 border-l border-zinc-700">
+          <span
+            className="hidden lg:block text-xs text-zinc-500 truncate max-w-[140px]"
+            title={userEmail}
+          >
+            {userEmail}
+          </span>
+          <button
+            onClick={onSignOut}
+            title="Sign out"
+            className="text-xs text-zinc-400 hover:text-zinc-100 transition-colors px-2 py-1 rounded hover:bg-zinc-800"
+          >
+            Sign out
+          </button>
+        </div>
+      )}
     </div>
   );
 }

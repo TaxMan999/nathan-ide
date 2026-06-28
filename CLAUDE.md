@@ -16,6 +16,7 @@ A Replit-style coding playground built for a 10–13 year old (Nathan). Single-p
 - Tailwind CSS v4 (via `@tailwindcss/vite` plugin — no `tailwind.config.ts` needed)
 - `@monaco-editor/react` — editor with autocomplete and syntax highlighting
 - `react-resizable-panels` — split-pane layout
+- `@supabase/supabase-js` — auth + cloud sync (optional; app works without it)
 
 ## Commands
 
@@ -32,7 +33,9 @@ Deploy by dropping `dist/` on Netlify or Vercel (free tier, drag-and-drop or Git
 
 **Code execution:** POST source to **Judge0 CE** (`https://ce.judge0.com/submissions?base64_encoded=false&wait=true`), display returned stdout/stderr. The original spec called for Piston, but the public Piston API (emkc.org) shut down to new users on 2/15/2026 — Judge0 CE is the free public replacement. HTML is special — render live in a sandboxed `<iframe srcdoc>` on every keystroke (debounced 300ms). No server required.
 
-**Persistence (Phase 2):** All projects will be stored in `localStorage` under a single key (`nathan-ide`) as JSON. Autosave on edit (debounced).
+**Persistence:** Projects stored in `localStorage` (offline fallback) and synced to Supabase when env vars are present. Autosave on edit — code changes debounce 1.5 s before hitting Supabase; create/rename/delete are immediate.
+
+**Auth:** Email magic link via Supabase Auth. Gated only when `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` are set. Without them the app runs fully offline (no login prompt). First login auto-migrates existing localStorage projects to Supabase.
 
 **Layout:**
 - `TopBar` — Run button, language selector
@@ -40,12 +43,16 @@ Deploy by dropping `dist/` on Netlify or Vercel (free tier, drag-and-drop or Git
 - Narrow screens (<768px): `PanelGroup direction="vertical"` via `useWindowWidth` hook
 
 **Key files:**
-- `src/types.ts` — `Language` type + `LANGUAGE_CONFIG` (Monaco language id, Piston runtime id, hello-world template per language)
-- `src/hooks/useCodeRunner.ts` — Judge0 CE API calls with 15s `AbortController` timeout; exposes `run(code, language)` and `clear()`
-- `src/components/TopBar.tsx` — Run button (Ctrl/Cmd+Enter shortcut), language selector with template-swap confirm
+- `src/types.ts` — `Language` type + `LANGUAGE_CONFIG`
+- `src/lib/supabase.ts` — Supabase client + `isConfigured` flag
+- `src/hooks/useAuth.ts` — session state, magic-link sign-in, sign-out
+- `src/hooks/useCodeRunner.ts` — Judge0 CE API calls with 15s `AbortController` timeout
+- `src/hooks/useProjects.ts` — project CRUD; takes optional `userId`; uses localStorage when offline, Supabase when logged in
+- `src/components/LoginScreen.tsx` — magic-link email form + "check your email" confirmation
+- `src/components/TopBar.tsx` — Run button, language selector, optional user email + sign-out
 - `src/components/Editor.tsx` — Monaco wrapper with loading skeleton
 - `src/components/Output.tsx` — stdout/stderr panel or `<iframe>` for HTML
-- `src/App.tsx` — layout shell, owns all state
+- `src/App.tsx` — auth gate + layout shell
 
 **Language config:**
 
