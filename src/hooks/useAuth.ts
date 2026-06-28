@@ -27,7 +27,8 @@ export function useAuth() {
 
   async function signIn(email: string) {
     setSignInError(null);
-    if (email.toLowerCase() !== "nathanjbrandes@gmail.com") {
+    const allowed = ["nathanjbrandes@gmail.com", "rudy.brandes@gmail.com"];
+    if (!allowed.includes(email.toLowerCase())) {
       setSignInError("This IDE is only for Nathan.");
       return;
     }
