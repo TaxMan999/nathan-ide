@@ -1,5 +1,34 @@
 import { useEffect, useRef, useState } from "react";
-import { Project } from "../types";
+import { Language, LANGUAGE_CONFIG, Project } from "../types";
+
+const LANG_STYLE: Record<Language, { dot: string; border: string; text: string; header: string }> = {
+  python: {
+    dot:    "bg-sky-400",
+    border: "border-sky-500",
+    text:   "text-sky-400",
+    header: "text-sky-300",
+  },
+  cpp: {
+    dot:    "bg-violet-400",
+    border: "border-violet-500",
+    text:   "text-violet-400",
+    header: "text-violet-300",
+  },
+  java: {
+    dot:    "bg-amber-400",
+    border: "border-amber-500",
+    text:   "text-amber-400",
+    header: "text-amber-300",
+  },
+  html: {
+    dot:    "bg-rose-400",
+    border: "border-rose-500",
+    text:   "text-rose-400",
+    header: "text-rose-300",
+  },
+};
+
+const LANGUAGE_ORDER: Language[] = ["python", "cpp", "java", "html"];
 
 interface SidebarProps {
   projects: Project[];
@@ -10,22 +39,20 @@ interface SidebarProps {
   onDelete: (id: string) => void;
 }
 
-export function Sidebar({
-  projects,
-  currentId,
-  onSwitch,
-  onCreate,
-  onRename,
-  onDelete,
-}: SidebarProps) {
+export function Sidebar({ projects, currentId, onSwitch, onCreate, onRename, onDelete }: SidebarProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState<Record<Language, boolean>>({
+    python: false,
+    cpp: false,
+    java: false,
+    html: false,
+  });
 
   function handleCreate() {
     const newId = onCreate();
     setConfirmDeleteId(null);
-    // Brief timeout lets state settle before we enter edit mode
     setTimeout(() => {
       setEditValue("New Project");
       setEditingId(newId);
@@ -45,17 +72,20 @@ export function Sidebar({
     }
   }
 
-  function cancelEdit() {
-    setEditingId(null);
+  function toggleCollapse(lang: Language) {
+    setCollapsed((c) => ({ ...c, [lang]: !c[lang] }));
   }
 
+  const grouped = LANGUAGE_ORDER.map((lang) => ({
+    lang,
+    projects: projects.filter((p) => p.language === lang),
+  })).filter((g) => g.projects.length > 0);
+
   return (
-    <div className="hidden md:flex w-44 shrink-0 flex-col bg-zinc-900 border-r border-zinc-800">
+    <div className="hidden md:flex w-48 shrink-0 flex-col bg-zinc-900 border-r border-zinc-800">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-zinc-800">
-        <span className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">
-          Projects
-        </span>
+        <span className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">Projects</span>
         <button
           onClick={handleCreate}
           title="New project"
@@ -65,38 +95,67 @@ export function Sidebar({
         </button>
       </div>
 
-      {/* Project list */}
+      {/* Grouped project list */}
       <div className="flex-1 overflow-y-auto py-1">
-        {projects.map((project) => (
-          <ProjectItem
-            key={project.id}
-            project={project}
-            isActive={project.id === currentId}
-            isEditing={editingId === project.id}
-            editValue={editValue}
-            isConfirmingDelete={confirmDeleteId === project.id}
-            canDelete={projects.length > 1}
-            onSelect={() => {
-              if (editingId !== project.id) {
-                setConfirmDeleteId(null);
-                onSwitch(project.id);
-              }
-            }}
-            onDoubleClick={() => startEdit(project)}
-            onEditChange={setEditValue}
-            onEditCommit={commitEdit}
-            onEditCancel={cancelEdit}
-            onRequestDelete={() => {
-              setConfirmDeleteId(project.id);
-              setEditingId(null);
-            }}
-            onConfirmDelete={() => {
-              onDelete(project.id);
-              setConfirmDeleteId(null);
-            }}
-            onCancelDelete={() => setConfirmDeleteId(null)}
-          />
-        ))}
+        {grouped.map(({ lang, projects: group }) => {
+          const style = LANG_STYLE[lang];
+          const isOpen = !collapsed[lang];
+          return (
+            <div key={lang}>
+              {/* Language folder header */}
+              <button
+                onClick={() => toggleCollapse(lang)}
+                className="w-full flex items-center gap-1.5 px-3 py-1.5 hover:bg-zinc-800/60 transition-colors group"
+              >
+                <span className={`text-zinc-500 group-hover:text-zinc-300 transition-colors text-xs`}>
+                  {isOpen ? "▾" : "▸"}
+                </span>
+                <span className={`w-2 h-2 rounded-full shrink-0 ${style.dot}`} />
+                <span className={`text-xs font-semibold tracking-wide ${style.header} flex-1 text-left`}>
+                  {LANGUAGE_CONFIG[lang].label}
+                </span>
+                <span className="text-xs text-zinc-600">{group.length}</span>
+              </button>
+
+              {/* Projects under this language */}
+              {isOpen && (
+                <div className={`border-l-2 ml-3 ${style.border}`}>
+                  {group.map((project) => (
+                    <ProjectItem
+                      key={project.id}
+                      project={project}
+                      isActive={project.id === currentId}
+                      isEditing={editingId === project.id}
+                      editValue={editValue}
+                      isConfirmingDelete={confirmDeleteId === project.id}
+                      canDelete={projects.length > 1}
+                      onSelect={() => {
+                        if (editingId !== project.id) {
+                          setConfirmDeleteId(null);
+                          onSwitch(project.id);
+                        }
+                      }}
+                      onDoubleClick={() => startEdit(project)}
+                      onEditChange={setEditValue}
+                      onEditCommit={commitEdit}
+                      onEditCancel={() => setEditingId(null)}
+                      onRequestDelete={() => {
+                        setConfirmDeleteId(project.id);
+                        setEditingId(null);
+                      }}
+                      onConfirmDelete={() => {
+                        onDelete(project.id);
+                        setConfirmDeleteId(null);
+                      }}
+                      onCancelDelete={() => setConfirmDeleteId(null)}
+                      activeStyle={style}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -109,6 +168,7 @@ interface ProjectItemProps {
   editValue: string;
   isConfirmingDelete: boolean;
   canDelete: boolean;
+  activeStyle: { dot: string; border: string; text: string; header: string };
   onSelect: () => void;
   onDoubleClick: () => void;
   onEditChange: (v: string) => void;
@@ -126,6 +186,7 @@ function ProjectItem({
   editValue,
   isConfirmingDelete,
   canDelete,
+  activeStyle,
   onSelect,
   onDoubleClick,
   onEditChange,
@@ -146,10 +207,8 @@ function ProjectItem({
 
   if (isConfirmingDelete) {
     return (
-      <div className="px-3 py-2 bg-zinc-800 border-l-2 border-red-500">
-        <p className="text-xs text-zinc-300 mb-1.5 truncate">
-          Delete &ldquo;{project.name}&rdquo;?
-        </p>
+      <div className="px-3 py-2 bg-zinc-800">
+        <p className="text-xs text-zinc-300 mb-1.5 truncate">Delete &ldquo;{project.name}&rdquo;?</p>
         <div className="flex gap-1.5">
           <button
             onClick={onConfirmDelete}
@@ -173,10 +232,10 @@ function ProjectItem({
       onClick={onSelect}
       onDoubleClick={onDoubleClick}
       className={[
-        "group flex items-center gap-1 px-3 py-2 cursor-pointer border-l-2 transition-colors",
+        "group flex items-center gap-1.5 pl-3 pr-2 py-1.5 cursor-pointer transition-colors",
         isActive
-          ? "bg-zinc-800 border-emerald-500 text-zinc-100"
-          : "border-transparent text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200",
+          ? `bg-zinc-800 ${activeStyle.text}`
+          : "text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200",
       ].join(" ")}
     >
       {isEditing ? (
